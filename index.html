@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KTH Course Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: '#000061',
+              'brand-light': '#e6e6ef',
+              background: '#F3F5F9',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            boxShadow: {
+              card: '0 4px 20px rgba(0, 0, 0, 0.03)',
+              'card-hover': '0 10px 25px rgba(0, 0, 97, 0.1)',
+            },
+            screens: {
+              xs: '480px',
+            },
+            transitionProperty: {
+              height: 'height',
+              spacing: 'margin, padding',
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body
+    class="min-h-screen flex flex-col font-sans antialiased selection:bg-brand selection:text-white bg-[#F3F5F9]"
+  >
+    <!-- Toast Container -->
+    <div
+      id="toastContainer"
+      class="fixed top-6 right-6 left-6 sm:left-auto z-[200] flex flex-col gap-3 pointer-events-none items-center sm:items-end"
+    ></div>
+
+    <!-- Main Layout -->
+    <div class="flex-1 flex flex-col px-4 sm:px-6 py-4 relative">
+      <!-- Top Header -->
+      <header
+        class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 lg:mb-6 flex-none gap-4"
+      >
+        <div class="flex items-center justify-between w-full lg:w-auto">
+          <div class="flex items-center gap-3 sm:gap-4">
+            <h1
+              class="text-xl sm:text-2xl lg:text-3xl font-bold text-brand tracking-tight truncate"
+            >
+              Course Planner
+            </h1>
+
+            <!-- Start Year Input -->
+            <div
+              class="flex items-center bg-white rounded-full px-3 py-1.5 sm:px-4 sm:py-2 shadow-sm border border-gray-200 gap-2"
+            >
+              <span
+                class="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider"
+                >Start</span
+              >
+              <input
+                type="number"
+                id="startYearInput"
+                class="bg-transparent border-none w-12 sm:w-16 text-center font-bold text-brand focus:outline-none text-sm sm:text-base"
+                value="2025"
+                min="2020"
+                max="2030"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div
+          class="flex items-center gap-2 w-full overflow-x-auto pb-3 lg:pb-0 lg:w-auto no-scrollbar pl-1"
+        >
+          <!-- Manual Import -->
+          <label
+            class="cursor-pointer group flex-none flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand text-white hover:bg-[#00004a] shadow-md shadow-brand/20 transition-all font-medium text-xs sm:text-sm whitespace-nowrap"
+            title="Import JSON"
+          >
+            <i class="fa-solid fa-file-import"></i>
+            <span>Import</span>
+            <input type="file" id="fileInput" accept=".json" class="hidden" />
+          </label>
+
+          <label
+            class="cursor-pointer group flex-none flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-white text-gray-600 hover:text-brand hover:shadow-md transition-all border border-gray-200 font-medium text-xs sm:text-sm whitespace-nowrap"
+            title="Load Schedule"
+          >
+            <i class="fa-solid fa-upload"></i>
+            <span class="hidden sm:inline">Load</span>
+            <input
+              type="file"
+              id="scheduleInput"
+              accept=".json"
+              class="hidden"
+              onchange="importSchedule(event)"
+            />
+          </label>
+
+          <button
+            onclick="exportSchedule()"
+            class="flex-none flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-white text-gray-600 hover:text-brand hover:shadow-md transition-all border border-gray-200 font-medium text-xs sm:text-sm whitespace-nowrap"
+            title="Save"
+          >
+            <i class="fa-solid fa-download"></i>
+            <span class="hidden sm:inline">Save</span>
+          </button>
+
+          <div class="w-px h-5 bg-gray-300 mx-1 flex-none"></div>
+
+          <button
+            onclick="clearSchedule()"
+            class="flex-none flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-red-50 text-red-600 rounded-full font-semibold hover:bg-red-100 hover:text-red-700 transition-colors border border-red-100 text-xs sm:text-sm whitespace-nowrap"
+          >
+            <i class="fa-solid fa-trash-can"></i>
+            <span>Reset</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Content Area -->
+      <div class="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 relative">
+        <!-- Sidebar Panel -->
+        <div
+          id="sidebarContainer"
+          class="flex-none flex flex-col w-full h-[75vh] lg:h-auto lg:min-h-[600px] lg:w-96 transition-all duration-300 ease-in-out order-1 lg:order-none overflow-hidden lg:overflow-visible"
+        >
+          <aside
+            class="w-full h-full bg-white lg:rounded-[2rem] rounded-xl shadow-card lg:shadow-none flex flex-col overflow-hidden border lg:border-r border-gray-200 relative lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]"
+          >
+            <!-- Header (Blue) -->
+            <div
+              class="p-4 sm:p-6 pb-4 bg-brand flex-none h-auto lg:h-[140px] relative transition-all duration-300"
+              style="height: fit-content"
+            >
+              <!-- Desktop Collapse Btn -->
+              <div class="hidden lg:block absolute top-4 right-4 z-50">
+                <button
+                  id="collapseBtn"
+                  onclick="toggleSidebar()"
+                  class="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+                  title="Toggle Sidebar"
+                >
+                  <i class="fa-solid fa-angle-left text-sm"></i>
+                </button>
+              </div>
+
+              <!-- Mobile Collapse Header -->
+              <div
+                class="lg:hidden flex justify-between items-center mb-4 cursor-pointer"
+                onclick="toggleMobileSidebar()"
+              >
+                <div class="flex items-center gap-3">
+                  <h2 class="text-lg font-bold text-white whitespace-nowrap">
+                    Available Courses
+                  </h2>
+                  <span
+                    id="courseCountMobile"
+                    class="text-xs font-bold px-2 py-1 bg-white/10 text-white rounded-md backdrop-blur-md border border-white/10"
+                    >0</span
+                  >
+                </div>
+                <button
+                  class="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+                >
+                  <i
+                    id="mobileCollapseArrow"
+                    class="fa-solid fa-chevron-up text-sm transition-transform duration-300"
+                  ></i>
+                </button>
+              </div>
+
+              <!-- Content -->
+              <div class="sidebar-content h-full flex flex-col">
+                <div
+                  class="hidden lg:flex justify-between items-center mb-4 lg:mb-6"
+                >
+                  <h2
+                    class="text-lg lg:text-xl font-bold text-white whitespace-nowrap"
+                  >
+                    Available Courses
+                  </h2>
+                  <span
+                    id="courseCount"
+                    class="text-xs font-bold px-2 py-1 bg-white/10 text-white rounded-md backdrop-blur-md border border-white/10 lg:mr-8"
+                    >0</span
+                  >
+                </div>
+
+                <!-- Search -->
+                <div class="relative mb-3">
+                  <i
+                    class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  ></i>
+                  <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search code/name..."
+                    class="w-full bg-white border-none rounded-xl py-2.5 pl-10 pr-4 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-brand-light/50 focus:bg-white transition-all placeholder-gray-400 shadow-sm"
+                  />
+                </div>
+
+                <!-- Filter -->
+                <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  <select
+                    id="periodFilter"
+                    class="bg-white border-none text-xs font-bold text-gray-700 rounded-lg px-3 py-2 cursor-pointer hover:bg-gray-50 focus:ring-0 shadow-sm w-full"
+                  >
+                    <option value="">All Periods</option>
+                    <option value="P1">Period 1</option>
+                    <option value="P2">Period 2</option>
+                    <option value="P3">Period 3</option>
+                    <option value="P4">Period 4</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Course List Container -->
+            <div
+              id="courseListContainer"
+              class="flex-1 overflow-hidden bg-white relative"
+            >
+              <div
+                id="courseList"
+                class="absolute inset-0 overflow-y-auto px-4 sm:px-6 pb-6 pt-4 space-y-3 custom-scroll sidebar-content"
+              >
+                <div class="text-center mt-10 text-gray-300 text-sm">
+                  <i class="fa-solid fa-box-open text-4xl mb-3 opacity-50"></i>
+                  <p>
+                    Please upload a courses.json file<br />to start planning.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Collapsed State Visual (Blue Strip - Desktop Only) -->
+            <div
+              class="absolute inset-0 bg-brand pointer-events-none opacity-0 transition-opacity duration-300 hidden lg:block"
+              id="collapsedBackground"
+            ></div>
+          </aside>
+        </div>
+
+        <!-- Main Schedule Panel -->
+        <main class="flex-1 w-full order-2 lg:order-none min-w-0">
+          <div class="flex flex-col gap-6 sm:gap-8 pb-10">
+            <!-- Year 1 -->
+            <section>
+              <div
+                class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-3 sm:mb-4 px-1 sm:px-2 gap-2"
+              >
+                <div>
+                  <h3
+                    class="text-xl sm:text-2xl font-bold text-gray-800 flex items-baseline gap-2"
+                  >
+                    Year 1
+                    <span
+                      id="year1Label"
+                      class="text-xs sm:text-sm font-medium text-gray-400 ml-2"
+                      >2025-2026</span
+                    >
+                  </h3>
+                </div>
+                <div
+                  class="flex gap-2 w-full sm:w-auto justify-between sm:justify-end"
+                >
+                  <!-- Added IDs to container divs for background changing -->
+                  <div
+                    id="sem-container-1-1"
+                    class="px-3 sm:px-4 py-1.5 bg-white rounded-full border border-gray-100 shadow-sm text-[10px] sm:text-xs font-semibold text-gray-600 flex-1 sm:flex-none text-center transition-colors duration-200"
+                  >
+                    Sem 1:
+                    <span id="sem-total-1-1" class="text-brand">0 hp</span>
+                  </div>
+                  <div
+                    id="sem-container-1-2"
+                    class="px-3 sm:px-4 py-1.5 bg-white rounded-full border border-gray-100 shadow-sm text-[10px] sm:text-xs font-semibold text-gray-600 flex-1 sm:flex-none text-center transition-colors duration-200"
+                  >
+                    Sem 2:
+                    <span id="sem-total-1-2" class="text-brand">0 hp</span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="bg-white rounded-xl sm:rounded-[2rem] shadow-card border border-gray-100 overflow-hidden w-full"
+              >
+                <div class="overflow-x-auto custom-scroll">
+                  <div class="min-w-[600px]">
+                    <div
+                      class="grid grid-cols-4 border-b border-gray-50 bg-white"
+                    >
+                      <div
+                        class="p-3 sm:p-4 flex justify-between items-center border-r border-gray-50"
+                      >
+                        <span
+                          class="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider"
+                          >P1</span
+                        ><span
+                          id="credits-1-P1"
+                          class="text-[10px] sm:text-xs font-bold text-brand bg-brand-light px-1.5 sm:px-2 py-1 rounded"
+                          >0 hp</span
+                        >
+                      </div>
+                      <div
+                        class="p-3 sm:p-4 flex justify-between items-center border-r border-gray-50"
+                      >
+                        <span
+                          class="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider"
+                          >P2</span
+                        ><span
+                          id="credits-1-P2"
+                          class="text-[10px] sm:text-xs font-bold text-brand bg-brand-light px-1.5 sm:px-2 py-1 rounded"
+                          >0 hp</span
+                        >
+                      </div>
+                      <div
+                        class="p-3 sm:p-4 flex justify-between items-center border-r border-gray-50"
+                      >
+                        <span
+                          class="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider"
+                          >P3</span
+                        ><span
+                          id="credits-1-P3"
+                          class="text-[10px] sm:text-xs font-bold text-brand bg-brand-light px-1.5 sm:px-2 py-1 rounded"
+                          >0 hp</span
+                        >
+                      </div>
+                      <div class="p-3 sm:p-4 flex justify-between items-center">
+                        <span
+                          class="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider"
+                          >P4</span
+                        ><span
+                          id="credits-1-P4"
+                          class="text-[10px] sm:text-xs font-bold text-brand bg-brand-light px-1.5 sm:px-2 py-1 rounded"
+                          >0 hp</span
+                        >
+                      </div>
+                    </div>
+
+                    <div class="relative min-h-[220px] h-auto bg-white">
+                      <div class="grid-background h-full absolute inset-0">
+                        <div class="grid-col-line"></div>
+                        <div class="grid-col-line"></div>
+                        <div class="grid-col-line"></div>
+                        <div class="grid-col-line"></div>
+                      </div>
+                      <div class="schedule-grid" data-year="1"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Year 2 -->
+            <section>
+              <div
+                class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-3 sm:mb-4 px-1 sm:px-2 gap-2"
+              >
+                <div>
+                  <h3
+                    class="text-xl sm:text-2xl font-bold text-gray-800 flex items-baseline gap-2"
+                  >
+                    Year 2
+                    <span
+                      id="year2Label"
+                      class="text-xs sm:text-sm font-medium text-gray-400 ml-2"
+                      >2026-2027</span
+                    >
+                  </h3>
+                </div>
+                <div
+                  class="flex gap-2 w-full sm:w-auto justify-between sm:justify-end"
+                >
+                  <!-- Added IDs to container divs -->
+                  <div
+                    id="sem-container-2-1"
+                    class="px-3 sm:px-4 py-1.5 bg-white rounded-full border border-gray-100 shadow-sm text-[10px] sm:text-xs font-semibold text-gray-600 flex-1 sm:flex-none text-center transition-colors duration-200"
+                  >
+                    Sem 1:
+                    <span id="sem-total-2-1" class="text-brand">0 hp</span>
+                  </div>
+                  <div
+                    id="sem-container-2-2"
+                    class="px-3 sm:px-4 py-1.5 bg-white rounded-full border border-gray-100 shadow-sm text-[10px] sm:text-xs font-semibold text-gray-600 flex-1 sm:flex-none text-center transition-colors duration-200"
+                  >
+                    Sem 2:
+                    <span id="sem-total-2-2" class="text-brand">0 hp</span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="bg-white rounded-xl sm:rounded-[2rem] shadow-card border border-gray-100 overflow-hidden w-full"
+              >
+                <div class="overflow-x-auto custom-scroll">
+                  <div class="min-w-[600px]">
+                    <div
+                      class="grid grid-cols-4 border-b border-gray-50 bg-white"
+                    >
+                      <div
+                        class="p-3 sm:p-4 flex justify-between items-center border-r border-gray-50"
+                      >
+                        <span
+                          class="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider"
+                          >P1</span
+                        ><span
+                          id="credits-2-P1"
+                          class="text-[10px] sm:text-xs font-bold text-brand bg-brand-light px-1.5 sm:px-2 py-1 rounded"
+                          >0 hp</span
+                        >
+                      </div>
+                      <div
+                        class="p-3 sm:p-4 flex justify-between items-center border-r border-gray-50"
+                      >
+                        <span
+                          class="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider"
+                          >P2</span
+                        ><span
+                          id="credits-2-P2"
+                          class="text-[10px] sm:text-xs font-bold text-brand bg-brand-light px-1.5 sm:px-2 py-1 rounded"
+                          >0 hp</span
+                        >
+                      </div>
+                      <div
+                        class="p-3 sm:p-4 flex justify-between items-center border-r border-gray-50"
+                      >
+                        <span
+                          class="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider"
+                          >P3</span
+                        ><span
+                          id="credits-2-P3"
+                          class="text-[10px] sm:text-xs font-bold text-brand bg-brand-light px-1.5 sm:px-2 py-1 rounded"
+                          >0 hp</span
+                        >
+                      </div>
+                      <div class="p-3 sm:p-4 flex justify-between items-center">
+                        <span
+                          class="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider"
+                          >P4</span
+                        ><span
+                          id="credits-2-P4"
+                          class="text-[10px] sm:text-xs font-bold text-brand bg-brand-light px-1.5 sm:px-2 py-1 rounded"
+                          >0 hp</span
+                        >
+                      </div>
+                    </div>
+                    <div class="relative min-h-[220px] h-auto bg-white">
+                      <div class="grid-background h-full absolute inset-0">
+                        <div class="grid-col-line"></div>
+                        <div class="grid-col-line"></div>
+                        <div class="grid-col-line"></div>
+                        <div class="grid-col-line"></div>
+                      </div>
+                      <div class="schedule-grid" data-year="2"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Modal & Year Select Modal (No changes) -->
+    <div
+      id="courseModal"
+      class="modal opacity-0 pointer-events-none fixed inset-0 flex items-center justify-center z-[100]"
+    >
+      <div
+        class="modal-overlay absolute inset-0 bg-[#000061]/40 backdrop-blur-sm"
+        onclick="closeModal()"
+      ></div>
+      <div
+        class="modal-content bg-white w-11/12 md:max-w-2xl mx-auto rounded-2xl sm:rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[85vh] border border-white/50"
+      >
+        <div
+          class="px-6 sm:px-8 py-4 sm:py-6 border-b border-gray-50 flex justify-between items-start bg-white"
+        >
+          <div class="pr-4">
+            <h3
+              class="text-lg sm:text-2xl font-bold text-brand tracking-tight"
+              id="modalTitle"
+            >
+              Course Name
+            </h3>
+            <p
+              class="text-gray-400 mt-1 font-medium text-xs sm:text-base"
+              id="modalCode"
+            >
+              Code • Level
+            </p>
+          </div>
+          <button
+            onclick="closeModal()"
+            class="flex-none w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-brand transition-colors"
+          >
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+        <div class="p-6 sm:p-8 overflow-y-auto custom-scroll bg-gray-50/50">
+          <!-- <div class="flex flex-wrap gap-2 mb-6 sm:mb-8" id="modalTags"></div> -->
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-50"
+          >
+            <div class="space-y-1">
+              <h4
+                class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
+              >
+                Main Subject
+              </h4>
+              <p id="modalSubject" class="text-sm font-semibold text-gray-800">
+                -
+              </p>
+            </div>
+            <div class="space-y-1">
+              <h4
+                class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
+              >
+                Examiner
+              </h4>
+              <p id="modalExaminer" class="text-sm font-semibold text-gray-800">
+                -
+              </p>
+            </div>
+            <div class="space-y-1">
+              <h4
+                class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
+              >
+                Language
+              </h4>
+              <p id="modalLanguage" class="text-sm font-semibold text-gray-800">
+                -
+              </p>
+            </div>
+            <div class="space-y-1">
+              <h4
+                class="text-[10px] font-bold text-gray-400 uppercase tracking-wider"
+              >
+                Academic Year
+              </h4>
+              <p id="modalStartYear" class="text-sm font-semibold text-brand">
+                -
+              </p>
+            </div>
+            <div class="col-span-1 sm:col-span-2 pt-2 border-t border-gray-50">
+              <h4
+                class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2"
+              >
+                Schedule
+              </h4>
+              <div
+                id="modalPeriods"
+                class="text-sm font-medium text-brand"
+              ></div>
+            </div>
+          </div>
+          <div>
+            <h4
+              class="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3"
+            >
+              About Course
+            </h4>
+            <div
+              id="modalDescription"
+              class="prose prose-sm max-w-none text-gray-600 leading-relaxed"
+            ></div>
+          </div>
+        </div>
+        <div
+          class="p-4 sm:p-6 border-t border-gray-50 bg-white flex justify-end gap-3"
+        >
+          <button
+            onclick="closeModal()"
+            class="px-5 sm:px-6 py-2 sm:py-2.5 text-gray-500 font-semibold hover:bg-gray-50 rounded-full transition-colors text-sm"
+          >
+            Close
+          </button>
+          <a
+            id="modalLink"
+            href="#"
+            target="_blank"
+            class="px-5 sm:px-6 py-2 sm:py-2.5 bg-brand text-white rounded-full font-semibold shadow-lg shadow-brand/20 hover:bg-[#00004a] flex items-center gap-2 transition-colors text-sm"
+            ><span>Course Web</span
+            ><i class="fa-solid fa-arrow-up-right-from-square text-xs"></i
+          ></a>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="yearSelectModal"
+      class="modal opacity-0 pointer-events-none fixed inset-0 flex items-center justify-center z-[150]"
+    >
+      <div
+        class="modal-overlay absolute inset-0 bg-[#000061]/40 backdrop-blur-sm"
+        onclick="closeYearSelect()"
+      ></div>
+      <div
+        class="modal-content bg-white w-80 rounded-2xl shadow-2xl p-6 flex flex-col items-center border border-white/50"
+      >
+        <h3 class="text-lg font-bold text-gray-800 mb-2">Select Year</h3>
+        <p class="text-sm text-gray-500 mb-6 text-center">
+          This course is available for both years. Which year would you like to
+          add it to?
+        </p>
+        <div class="grid grid-cols-2 gap-4 w-full">
+          <button
+            onclick="confirmYearSelect(1)"
+            class="flex flex-col items-center justify-center p-4 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 hover:border-emerald-200 transition-all"
+          >
+            <span class="text-2xl font-bold text-emerald-600 mb-1">Y1</span
+            ><span class="text-xs font-medium text-emerald-700">Year 1</span>
+          </button>
+          <button
+            onclick="confirmYearSelect(2)"
+            class="flex flex-col items-center justify-center p-4 rounded-xl bg-amber-50 border border-amber-100 hover:bg-amber-100 hover:border-amber-200 transition-all"
+          >
+            <span class="text-2xl font-bold text-amber-600 mb-1">Y2</span
+            ><span class="text-xs font-medium text-amber-700">Year 2</span>
+          </button>
+        </div>
+        <button
+          onclick="closeYearSelect()"
+          class="mt-6 text-sm text-gray-400 hover:text-gray-600"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+    <script src="index.js"></script>
+  </body>
+</html>
